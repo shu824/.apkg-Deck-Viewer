@@ -1,1 +1,523 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <title>.apkg Deck Viewer (Unofficial Web Viewer)</title>
+  <!-- ZIP解凍 / Zstandard解凍 / SQLite解析 (すべてクライアントサイドで動作) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js"></script>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
+    body { background-color: #f6f8fa; color: #24292f; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 12px; }
+    
+    header { width: 100%; max-width: 960px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
+    header h1 { font-size: 1.15rem; font-weight: 700; color: #1f2328; }
+    header .badge { font-size: 0.75rem; background: #eaeef2; color: #57609a; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
 
+    .top-bar { width: 100%; max-width: 960px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
+    #file-input { display: none; }
+    .file-label {
+      display: block;
+      text-align: center;
+      padding: 12px;
+      background: #0969da;
+      color: #fff;
+      border-radius: 8px;
+      font-weight: 600;
+      font-size: 0.95rem;
+      cursor: pointer;
+      box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+      transition: background 0.2s;
+    }
+    .file-label:hover { background: #0854ad; }
+    
+    .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
+    .status { font-size: 0.85rem; color: #57606a; font-weight: 500; }
+    
+    /* ツールボタン群 */
+    .controls-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+    .action-btn { padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #d0d7de; background: #fff; color: #0969da; cursor: pointer; font-weight: 600; }
+    .action-btn:hover { background: #f3f4f6; }
+    .filter-btn { padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #d0d7de; background: #fff; cursor: pointer; font-weight: 500; }
+    .filter-btn.active { background: #24292f; color: #fff; border-color: #24292f; }
+
+    /* メインレイアウト */
+    .app-layout { width: 100%; max-width: 960px; display: flex; gap: 12px; align-items: stretch; flex: 1; }
+    
+    /* 左側：問題番号グリッド */
+    .list-sidebar {
+      width: 220px;
+      min-width: 180px;
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 8px;
+      height: 68vh;
+      overflow-y: auto;
+      display: grid;
+      grid-template-columns: repeat(4, 1fr);
+      gap: 5px;
+      align-content: start;
+    }
+    .grid-btn {
+      height: 38px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 0.8rem;
+      font-weight: 600;
+      border-radius: 6px;
+      cursor: pointer;
+      background: #f6f8fa;
+      color: #24292f;
+      border: 1px solid #e1e4e8;
+    }
+    .grid-btn.active { border: 2px solid #0969da; box-shadow: 0 0 0 2px rgba(9,105,218,0.2); }
+    .grid-btn.mark-ok { background: #dafbe1; color: #1a7f37; border-color: #aceebb; }
+    .grid-btn.mark-ng { background: #ffebe9; color: #cf222e; border-color: #ffc1c0; }
+    .grid-btn.mark-hold { background: #fff8c5; color: #9a6700; border-color: #fae17d; }
+
+    /* 右側：メインカード表示部 */
+    .main-content { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .card {
+      background: #fff;
+      border: 1px solid #d0d7de;
+      border-radius: 8px;
+      padding: 20px;
+      min-height: 260px;
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      justify-content: flex-start;
+      align-items: stretch;
+      text-align: left;
+      font-size: 1.05rem;
+      line-height: 1.6;
+      word-break: break-word;
+      overflow-y: auto;
+      max-height: 52vh;
+    }
+    .card img { max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; display: block; }
+    
+    .answer-divider { border-top: 2px dashed #0969da; margin: 20px 0 16px 0; position: relative; }
+    .answer-divider::before {
+      content: "【 解答・解説 】";
+      position: absolute;
+      top: -11px;
+      left: 10px;
+      background: #fff;
+      padding: 0 6px;
+      font-size: 0.8rem;
+      color: #0969da;
+      font-weight: bold;
+    }
+
+    /* 〇・▲・× チェックバー */
+    .check-bar { display: flex; gap: 6px; }
+    .check-btn { flex: 1; padding: 10px 0; border: 1px solid #d0d7de; border-radius: 6px; font-size: 0.95rem; font-weight: bold; background: #fff; cursor: pointer; }
+    .check-btn.btn-ok.selected { background: #1a7f37; color: #fff; border-color: #1a7f37; }
+    .check-btn.btn-hold.selected { background: #9a6700; color: #fff; border-color: #9a6700; }
+    .check-btn.btn-ng.selected { background: #cf222e; color: #fff; border-color: #cf222e; }
+
+    /* 操作ボタン群 */
+    .controls { display: flex; gap: 6px; }
+    button { padding: 12px 6px; border: none; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; background: #0969da; color: #fff; }
+    button:disabled { background: #d0d7de; color: #8c959f; cursor: not-allowed; }
+    #btn-prev, #btn-next { flex: 1; }
+    #btn-prev { background: #6e7781; }
+    #btn-prev:disabled { background: #d0d7de; }
+    #btn-toggle { flex: 2; }
+    #btn-toggle.active { background: #bf8700; }
+
+    /* ショートカットキー案内 */
+    .shortcut-tip { font-size: 0.75rem; color: #57606a; text-align: center; margin-top: 4px; }
+
+    /* 免責事項・フッター */
+    footer {
+      width: 100%;
+      max-width: 960px;
+      margin-top: 14px;
+      padding: 12px;
+      font-size: 0.72rem;
+      color: #57606a;
+      line-height: 1.5;
+      text-align: center;
+      border-top: 1px solid #e1e4e8;
+    }
+
+    /* スマホ表示対応 */
+    @media (max-width: 640px) {
+      body { padding: 8px; }
+      .app-layout { flex-direction: column; gap: 8px; }
+      .toolbar { flex-direction: column; align-items: stretch; gap: 6px; }
+      .controls-row { justify-content: space-between; }
+      .list-sidebar {
+        width: 100%;
+        max-width: 100%;
+        height: 90px;
+        grid-template-columns: repeat(8, 1fr);
+        gap: 4px;
+        padding: 6px;
+      }
+      .grid-btn { height: 34px; font-size: 0.75rem; }
+      .card { min-height: 220px; max-height: 45vh; padding: 14px; }
+      .check-btn { padding: 12px 0; }
+      button { padding: 14px 6px; }
+    }
+  </style>
+</head>
+<body>
+
+<header>
+  <h1>.apkg Deck Viewer</h1>
+  <span class="badge">完全ローカル処理 / オフライン対応</span>
+</header>
+
+<div class="top-bar">
+  <label class="file-label" for="file-input">📂 .apkg / .colpkg ファイルを選択して開始</label>
+  <input type="file" id="file-input" accept=".apkg,.colpkg">
+  
+  <div class="toolbar">
+    <div class="status" id="status-text">ファイルを選択してください（データは外部送信されません）</div>
+    
+    <div class="controls-row">
+      <button class="action-btn" id="btn-shuffle" title="問題をランダムに並び替え">🔀 シャッフル</button>
+      <button class="action-btn" id="btn-original-order" title="1番からの通し番号順に戻す">🔢 番号順</button>
+      
+      <button class="filter-btn active" data-filter="all">すべて</button>
+      <button class="filter-btn" data-filter="ng">× 要復習</button>
+      <button class="filter-btn" data-filter="hold">▲ 曖昧</button>
+    </div>
+  </div>
+</div>
+
+<div class="app-layout">
+  <!-- 問題番号タイル -->
+  <div class="list-sidebar" id="question-grid">
+    <div style="grid-column: 1 / -1; text-align:center; color:#8c959f; font-size:0.8rem; padding-top: 15px;">未読込</div>
+  </div>
+
+  <!-- 問題カード・操作エリア -->
+  <div class="main-content">
+    <div class="card" id="card-box">
+      <div id="front-text" style="color: #6e7781;">上に表示されているボタンから .apkg ファイルを選択すると、問題カードがここに読み込まれます。</div>
+      <div id="back-area" style="display: none; width: 100%;">
+        <div class="answer-divider"></div>
+        <div id="back-text"></div>
+      </div>
+    </div>
+
+    <!-- 〇・▲・× チェックボタン -->
+    <div class="check-bar">
+      <button class="check-btn btn-ok" id="mark-ok">〇 覚えた [1]</button>
+      <button class="check-btn btn-hold" id="mark-hold">▲ 曖昧 [2]</button>
+      <button class="check-btn btn-ng" id="mark-ng">× 復習 [3]</button>
+    </div>
+
+    <!-- ナビゲーションボタン -->
+    <div class="controls">
+      <button id="btn-prev" disabled>◀ 前へ [←]</button>
+      <button id="btn-toggle" disabled>答えを表示 [Space]</button>
+      <button id="btn-next" disabled>次へ [→] ▶</button>
+    </div>
+    
+    <div class="shortcut-tip">キーボード操作: [Space] 表示切替 / [←][→] 前後移動 / [1][2][3] 習熟度マーク</div>
+  </div>
+</div>
+
+<footer>
+  <strong>【免責事項・権利表記】</strong><br>
+  ・「Anki」は Ankitects Pty Ltd の登録商標です。<br>
+  ・本サービスは Ankitects との提携、承認、推奨関係にはないサードパーティ製の非公式ビューアです。<br>
+  ・読み込まれた `.apkg` ファイルおよび学習データは、すべてご利用のブラウザ内（クライアントサイド）のみで展開・処理され、外部サーバー等に送信・保存されることは一切ありません。
+</footer>
+
+<script>
+  let allCards = [];
+  let visibleIndices = []; 
+  let currentPointer = 0;   
+  let mediaMap = {};
+  let currentFilter = 'all';
+
+  const fileInput = document.getElementById('file-input');
+  const statusText = document.getElementById('status-text');
+  const cardBox = document.getElementById('card-box');
+  const frontText = document.getElementById('front-text');
+  const backText = document.getElementById('back-text');
+  const backArea = document.getElementById('back-area');
+  const questionGrid = document.getElementById('question-grid');
+  
+  const btnPrev = document.getElementById('btn-prev');
+  const btnToggle = document.getElementById('btn-toggle');
+  const btnNext = document.getElementById('btn-next');
+  const btnShuffle = document.getElementById('btn-shuffle');
+  const btnOriginalOrder = document.getElementById('btn-original-order');
+  const markOk = document.getElementById('mark-ok');
+  const markHold = document.getElementById('mark-hold');
+  const markNg = document.getElementById('mark-ng');
+  const filterBtns = document.querySelectorAll('.filter-btn');
+
+  fileInput.addEventListener('change', async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+
+    statusText.innerText = "ファイルを展開中...";
+    setButtonsDisabled(true);
+
+    Object.values(mediaMap).forEach(url => URL.revokeObjectURL(url));
+    mediaMap = {};
+
+    try {
+      const zip = await JSZip.loadAsync(file);
+      let dbData;
+
+      // メディア解析
+      const mediaEntry = zip.file("media");
+      if (mediaEntry) {
+        statusText.innerText = "画像・メディアを解析中...";
+        try {
+          const mediaJsonStr = await mediaEntry.async("string");
+          const mediaIndex = JSON.parse(mediaJsonStr);
+          for (const [key, origFilename] of Object.entries(mediaIndex)) {
+            const mediaZipFile = zip.file(key);
+            if (mediaZipFile) {
+              const blob = await mediaZipFile.async("blob");
+              mediaMap[origFilename] = URL.createObjectURL(blob);
+            }
+          }
+        } catch (mediaErr) {
+          console.warn("メディアの読み込みをスキップ:", mediaErr);
+        }
+      }
+
+      // データベース抽出 (anki21b, anki21, anki2 に対応)
+      const file21b = zip.file("collection.anki21b");
+      const file21 = zip.file("collection.anki21");
+      const file2 = zip.file("collection.anki2");
+
+      if (file21b) {
+        statusText.innerText = "新形式データ（zstd）を展開中...";
+        const compressed = await file21b.async("uint8array");
+        dbData = fzstd.decompress(compressed);
+      } else if (file21) {
+        statusText.innerText = "データベース（anki21）を読み込み中...";
+        dbData = await file21.async("uint8array");
+      } else if (file2) {
+        statusText.innerText = "旧形式データベースを読み込み中...";
+        dbData = await file2.async("uint8array");
+      } else {
+        throw new Error("内部データベースが見つかりません。対応する有効な .apkg / .colpkg ではありません。");
+      }
+
+      // SQLite 初期化と抽出
+      const SQL = await initSqlJs({
+        locateFile: filename => `https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/${filename}`
+      });
+      const db = new SQL.Database(dbData);
+
+      const res = db.exec("SELECT flds FROM notes");
+      if (!res.length || !res[0].values.length) throw new Error("カードデータが存在しません。");
+
+      allCards = res[0].values.map((row, idx) => {
+        const parts = row[0].split('\x1f');
+        return { 
+          id: idx,
+          front: parts[0] || "", 
+          back: parts[1] || "",
+          mark: null
+        };
+      });
+
+      // アップデート警告行等の除外
+      allCards = allCards.filter(c => !c.front.includes("Ankiの最新バージョンにアップデート"));
+      if (allCards.length === 0) throw new Error("有効なカードデータを取得できませんでした。");
+
+      applyFilter('all');
+      statusText.innerText = `読み込み完了: 全 ${allCards.length} 問`;
+    } catch (err) {
+      statusText.innerText = `エラー: ${err.message}`;
+      console.error(err);
+    }
+  });
+
+  function setButtonsDisabled(state) {
+    btnPrev.disabled = state;
+    btnToggle.disabled = state;
+    btnNext.disabled = state;
+  }
+
+  function replaceMediaUrls(htmlContent) {
+    if (!htmlContent) return "";
+    return htmlContent.replace(/<img[^>]+src=["']([^"']+)["'][^>]*>/gi, (match, src) => {
+      const cleanSrc = decodeURIComponent(src);
+      return mediaMap[cleanSrc] ? match.replace(src, mediaMap[cleanSrc]) : match;
+    });
+  }
+
+  function applyFilter(filter) {
+    currentFilter = filter;
+    filterBtns.forEach(b => b.classList.toggle('active', b.dataset.filter === filter));
+
+    if (filter === 'all') {
+      visibleIndices = allCards.map((_, idx) => idx);
+    } else {
+      visibleIndices = allCards
+        .map((card, idx) => (card.mark === filter ? idx : -1))
+        .filter(idx => idx !== -1);
+    }
+
+    renderSidebarGrid();
+
+    if (visibleIndices.length > 0) {
+      currentPointer = 0;
+      renderCard();
+    } else {
+      frontText.innerText = "該当する問題がありません。";
+      backArea.style.display = 'none';
+      setButtonsDisabled(true);
+      statusText.innerText = `表示件数: 0 問`;
+    }
+  }
+
+  function renderSidebarGrid() {
+    questionGrid.innerHTML = "";
+    visibleIndices.forEach((cardIdx, pIdx) => {
+      const card = allCards[cardIdx];
+      const btn = document.createElement("div");
+      btn.className = `grid-btn ${card.mark ? 'mark-' + card.mark : ''}`;
+      
+      let markSymbol = "";
+      if (card.mark === 'ok') markSymbol = "〇";
+      if (card.mark === 'hold') markSymbol = "▲";
+      if (card.mark === 'ng') markSymbol = "×";
+      
+      btn.innerHTML = `<span>${card.id + 1}</span><span style="font-size:0.6rem;">${markSymbol}</span>`;
+      btn.addEventListener("click", () => {
+        currentPointer = pIdx;
+        renderCard();
+      });
+      questionGrid.appendChild(btn);
+    });
+  }
+
+  function renderCard() {
+    if (visibleIndices.length === 0) return;
+    const currentCard = allCards[visibleIndices[currentPointer]];
+
+    frontText.innerHTML = replaceMediaUrls(currentCard.front);
+    backText.innerHTML = replaceMediaUrls(currentCard.back);
+    
+    backArea.style.display = 'none';
+    cardBox.scrollTop = 0;
+
+    btnToggle.innerText = "答えを表示 [Space]";
+    btnToggle.classList.remove("active");
+    btnToggle.disabled = false;
+
+    btnPrev.disabled = (currentPointer === 0);
+    btnNext.disabled = (currentPointer === visibleIndices.length - 1);
+    statusText.innerText = `${currentPointer + 1} / ${visibleIndices.length} (第${currentCard.id + 1}問)`;
+
+    updateCheckButtons(currentCard.mark);
+
+    const btns = questionGrid.getElementsByClassName("grid-btn");
+    for (let i = 0; i < btns.length; i++) {
+      if (i === currentPointer) {
+        btns[i].classList.add("active");
+        btns[i].scrollIntoView({ block: "nearest", behavior: "smooth" });
+      } else {
+        btns[i].classList.remove("active");
+      }
+    }
+  }
+
+  function updateCheckButtons(mark) {
+    markOk.classList.toggle('selected', mark === 'ok');
+    markHold.classList.toggle('selected', mark === 'hold');
+    markNg.classList.toggle('selected', mark === 'ng');
+  }
+
+  function setMark(markType) {
+    if (visibleIndices.length === 0) return;
+    const currentCard = allCards[visibleIndices[currentPointer]];
+    currentCard.mark = (currentCard.mark === markType) ? null : markType;
+    
+    updateCheckButtons(currentCard.mark);
+    renderSidebarGrid();
+
+    const btns = questionGrid.getElementsByClassName("grid-btn");
+    if (btns[currentPointer]) btns[currentPointer].classList.add("active");
+  }
+
+  markOk.addEventListener('click', () => setMark('ok'));
+  markHold.addEventListener('click', () => setMark('hold'));
+  markNg.addEventListener('click', () => setMark('ng'));
+
+  btnToggle.addEventListener('click', () => {
+    const isShowing = backArea.style.display === 'block';
+    if (isShowing) {
+      backArea.style.display = 'none';
+      btnToggle.innerText = "答えを表示 [Space]";
+      btnToggle.classList.remove("active");
+    } else {
+      backArea.style.display = 'block';
+      btnToggle.innerText = "答えを隠す [Space]";
+      btnToggle.classList.add("active");
+      backArea.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+
+  btnPrev.addEventListener('click', () => {
+    if (currentPointer > 0) {
+      currentPointer--;
+      renderCard();
+    }
+  });
+
+  btnNext.addEventListener('click', () => {
+    if (currentPointer < visibleIndices.length - 1) {
+      currentPointer++;
+      renderCard();
+    }
+  });
+
+  btnShuffle.addEventListener('click', () => {
+    if (allCards.length === 0) return;
+    allCards.sort(() => Math.random() - 0.5);
+    applyFilter(currentFilter);
+  });
+
+  btnOriginalOrder.addEventListener('click', () => {
+    if (allCards.length === 0) return;
+    allCards.sort((a, b) => a.id - b.id);
+    applyFilter(currentFilter);
+  });
+
+  filterBtns.forEach(btn => {
+    btn.addEventListener('click', () => applyFilter(btn.dataset.filter));
+  });
+
+  window.addEventListener('keydown', (e) => {
+    if (visibleIndices.length === 0) return;
+    if (e.key === " " || e.code === "Space") {
+      e.preventDefault();
+      btnToggle.click();
+    } else if (e.key === "ArrowLeft") {
+      btnPrev.click();
+    } else if (e.key === "ArrowRight") {
+      btnNext.click();
+    } else if (e.key === "1") {
+      setMark('ok');
+    } else if (e.key === "2") {
+      setMark('hold');
+    } else if (e.key === "3") {
+      setMark('ng');
+    }
+  });
+</script>
+
+</body>
+</html>
