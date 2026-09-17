@@ -9,15 +9,61 @@
   <script src="https://cdn.jsdelivr.net/npm/fzstd@0.1.1/umd/index.js"></script>
   <script src="https://cdnjs.cloudflare.com/ajax/libs/sql.js/1.8.0/sql-wasm.js"></script>
   <style>
-    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif; -webkit-tap-highlight-color: transparent; }
-    body { background-color: #f6f8fa; color: #24292f; display: flex; flex-direction: column; align-items: center; min-height: 100vh; padding: 12px; }
-    
-    header { width: 100%; max-width: 960px; margin-bottom: 8px; display: flex; justify-content: space-between; align-items: baseline; }
-    header h1 { font-size: 1.15rem; font-weight: 700; color: #1f2328; }
-    header .badge { font-size: 0.75rem; background: #eaeef2; color: #57609a; padding: 2px 6px; border-radius: 4px; font-weight: 600; }
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+      -webkit-tap-highlight-color: transparent;
+    }
 
-    .top-bar { width: 100%; max-width: 960px; display: flex; flex-direction: column; gap: 8px; margin-bottom: 8px; }
-    #file-input { display: none; }
+    body {
+      background-color: #f6f8fa;
+      color: #24292f;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 12px;
+    }
+
+    header {
+      width: 100%;
+      max-width: 960px;
+      margin-bottom: 8px;
+      display: flex;
+      justify-content: space-between;
+      align-items: baseline;
+    }
+
+    header h1 {
+      font-size: 1.15rem;
+      font-weight: 700;
+      color: #1f2328;
+    }
+
+    header .badge {
+      font-size: 0.75rem;
+      background: #eaeef2;
+      color: #57609a;
+      padding: 2px 6px;
+      border-radius: 4px;
+      font-weight: 600;
+    }
+
+    .top-bar {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      margin-bottom: 8px;
+    }
+
+    #file-input {
+      display: none;
+    }
+
     .file-label {
       display: block;
       text-align: center;
@@ -31,21 +77,75 @@
       box-shadow: 0 1px 3px rgba(0,0,0,0.1);
       transition: background 0.2s;
     }
-    .file-label:hover { background: #0854ad; }
-    
-    .toolbar { display: flex; justify-content: space-between; align-items: center; flex-wrap: wrap; gap: 8px; }
-    .status { font-size: 0.85rem; color: #57606a; font-weight: 500; }
-    
+
+    .file-label:hover {
+      background: #0854ad;
+    }
+
+    .toolbar {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .status {
+      font-size: 0.85rem;
+      color: #57606a;
+      font-weight: 500;
+    }
+
     /* ツールボタン群 */
-    .controls-row { display: flex; gap: 6px; align-items: center; flex-wrap: wrap; }
-    .action-btn { padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #d0d7de; background: #fff; color: #0969da; cursor: pointer; font-weight: 600; }
-    .action-btn:hover { background: #f3f4f6; }
-    .filter-btn { padding: 6px 10px; font-size: 0.8rem; border-radius: 6px; border: 1px solid #d0d7de; background: #fff; cursor: pointer; font-weight: 500; }
-    .filter-btn.active { background: #24292f; color: #fff; border-color: #24292f; }
+    .controls-row {
+      display: flex;
+      gap: 6px;
+      align-items: center;
+      flex-wrap: wrap;
+    }
+
+    .action-btn {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      border: 1px solid #d0d7de;
+      background: #fff;
+      color: #0969da;
+      cursor: pointer;
+      font-weight: 600;
+    }
+
+    .action-btn:hover {
+      background: #f3f4f6;
+    }
+
+    .filter-btn {
+      padding: 6px 10px;
+      font-size: 0.8rem;
+      border-radius: 6px;
+      border: 1px solid #d0d7de;
+      background: #fff;
+      color: #24292f;
+      cursor: pointer;
+      font-weight: 500;
+    }
+
+    .filter-btn.active {
+      background: #24292f;
+      color: #fff;
+      border-color: #24292f;
+    }
 
     /* メインレイアウト */
-    .app-layout { width: 100%; max-width: 960px; display: flex; gap: 12px; align-items: stretch; flex: 1; }
-    
+    .app-layout {
+      width: 100%;
+      max-width: 960px;
+      display: flex;
+      gap: 12px;
+      align-items: stretch;
+      flex: 1;
+    }
+
     /* 左側：問題番号グリッド */
     .list-sidebar {
       width: 220px;
@@ -61,6 +161,7 @@
       gap: 5px;
       align-content: start;
     }
+
     .grid-btn {
       height: 38px;
       display: flex;
@@ -75,13 +176,39 @@
       color: #24292f;
       border: 1px solid #e1e4e8;
     }
-    .grid-btn.active { border: 2px solid #0969da; box-shadow: 0 0 0 2px rgba(9,105,218,0.2); }
-    .grid-btn.mark-ok { background: #dafbe1; color: #1a7f37; border-color: #aceebb; }
-    .grid-btn.mark-ng { background: #ffebe9; color: #cf222e; border-color: #ffc1c0; }
-    .grid-btn.mark-hold { background: #fff8c5; color: #9a6700; border-color: #fae17d; }
+
+    .grid-btn.active {
+      border: 2px solid #0969da;
+      box-shadow: 0 0 0 2px rgba(9,105,218,0.2);
+    }
+
+    .grid-btn.mark-ok {
+      background: #dafbe1;
+      color: #1a7f37;
+      border-color: #aceebb;
+    }
+
+    .grid-btn.mark-ng {
+      background: #ffebe9;
+      color: #cf222e;
+      border-color: #ffc1c0;
+    }
+
+    .grid-btn.mark-hold {
+      background: #fff8c5;
+      color: #9a6700;
+      border-color: #fae17d;
+    }
 
     /* 右側：メインカード表示部 */
-    .main-content { flex: 1; display: flex; flex-direction: column; gap: 8px; min-width: 0; }
+    .main-content {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      min-width: 0;
+    }
+
     .card {
       background: #fff;
       border: 1px solid #d0d7de;
@@ -100,9 +227,21 @@
       overflow-y: auto;
       max-height: 52vh;
     }
-    .card img { max-width: 100%; height: auto; border-radius: 6px; margin: 8px 0; display: block; }
-    
-    .answer-divider { border-top: 2px dashed #0969da; margin: 20px 0 16px 0; position: relative; }
+
+    .card img {
+      max-width: 100%;
+      height: auto;
+      border-radius: 6px;
+      margin: 8px 0;
+      display: block;
+    }
+
+    .answer-divider {
+      border-top: 2px dashed #0969da;
+      margin: 20px 0 16px 0;
+      position: relative;
+    }
+
     .answer-divider::before {
       content: "【 解答・解説 】";
       position: absolute;
@@ -116,24 +255,112 @@
     }
 
     /* 〇・▲・× チェックバー */
-    .check-bar { display: flex; gap: 6px; }
-    .check-btn { flex: 1; padding: 10px 0; border: 1px solid #d0d7de; border-radius: 6px; font-size: 0.95rem; font-weight: bold; background: #fff; cursor: pointer; }
-    .check-btn.btn-ok.selected { background: #1a7f37; color: #fff; border-color: #1a7f37; }
-    .check-btn.btn-hold.selected { background: #9a6700; color: #fff; border-color: #9a6700; }
-    .check-btn.btn-ng.selected { background: #cf222e; color: #fff; border-color: #cf222e; }
+    .check-bar {
+      display: flex;
+      gap: 6px;
+    }
+
+    .check-btn {
+      flex: 1;
+      padding: 10px 0;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      background: #fff;
+      transition: all 0.15s ease;
+    }
+
+    /* 通常時（非選択）の枠線・文字色 */
+    .check-btn.btn-ok {
+      border: 2px solid #2da44e;
+      color: #1a7f37;
+    }
+
+    .check-btn.btn-hold {
+      border: 2px solid #d4a72c;
+      color: #9a6700;
+    }
+
+    .check-btn.btn-ng {
+      border: 2px solid #cf222e;
+      color: #cf222e;
+    }
+
+    /* ホバー時の軽い背景色 */
+    .check-btn.btn-ok:hover { background: #dafbe1; }
+    .check-btn.btn-hold:hover { background: #fff8c5; }
+    .check-btn.btn-ng:hover { background: #ffebe9; }
+
+    /* 選択（アクティブ）時の反転カラー */
+    .check-btn.btn-ok.selected {
+      background: #1a7f37;
+      color: #fff;
+      border-color: #1a7f37;
+    }
+
+    .check-btn.btn-hold.selected {
+      background: #9a6700;
+      color: #fff;
+      border-color: #9a6700;
+    }
+
+    .check-btn.btn-ng.selected {
+      background: #cf222e;
+      color: #fff;
+      border-color: #cf222e;
+    }
 
     /* 操作ボタン群 */
-    .controls { display: flex; gap: 6px; }
-    button { padding: 12px 6px; border: none; border-radius: 6px; font-size: 0.95rem; font-weight: bold; cursor: pointer; background: #0969da; color: #fff; }
-    button:disabled { background: #d0d7de; color: #8c959f; cursor: not-allowed; }
-    #btn-prev, #btn-next { flex: 1; }
-    #btn-prev { background: #6e7781; }
-    #btn-prev:disabled { background: #d0d7de; }
-    #btn-toggle { flex: 2; }
-    #btn-toggle.active { background: #bf8700; }
+    .controls {
+      display: flex;
+      gap: 6px;
+    }
+
+    button {
+      padding: 12px 6px;
+      border: none;
+      border-radius: 6px;
+      font-size: 0.95rem;
+      font-weight: bold;
+      cursor: pointer;
+      background: #0969da;
+      color: #fff;
+    }
+
+    button:disabled {
+      background: #d0d7de;
+      color: #8c959f;
+      cursor: not-allowed;
+    }
+
+    #btn-prev, #btn-next {
+      flex: 1;
+    }
+
+    #btn-prev {
+      background: #6e7781;
+    }
+
+    #btn-prev:disabled {
+      background: #d0d7de;
+    }
+
+    #btn-toggle {
+      flex: 2;
+    }
+
+    #btn-toggle.active {
+      background: #bf8700;
+    }
 
     /* ショートカットキー案内 */
-    .shortcut-tip { font-size: 0.75rem; color: #57606a; text-align: center; margin-top: 4px; }
+    .shortcut-tip {
+      font-size: 0.75rem;
+      color: #57606a;
+      text-align: center;
+      margin-top: 4px;
+    }
 
     /* 免責事項・フッター */
     footer {
@@ -150,10 +377,21 @@
 
     /* スマホ表示対応 */
     @media (max-width: 640px) {
-      body { padding: 8px; }
-      .app-layout { flex-direction: column; gap: 8px; }
-      .toolbar { flex-direction: column; align-items: stretch; gap: 6px; }
-      .controls-row { justify-content: space-between; }
+      body {
+        padding: 8px;
+      }
+      .app-layout {
+        flex-direction: column;
+        gap: 8px;
+      }
+      .toolbar {
+        flex-direction: column;
+        align-items: stretch;
+        gap: 6px;
+      }
+      .controls-row {
+        justify-content: space-between;
+      }
       .list-sidebar {
         width: 100%;
         max-width: 100%;
@@ -162,10 +400,21 @@
         gap: 4px;
         padding: 6px;
       }
-      .grid-btn { height: 34px; font-size: 0.75rem; }
-      .card { min-height: 220px; max-height: 45vh; padding: 14px; }
-      .check-btn { padding: 12px 0; }
-      button { padding: 14px 6px; }
+      .grid-btn {
+        height: 34px;
+        font-size: 0.75rem;
+      }
+      .card {
+        min-height: 220px;
+        max-height: 45vh;
+        padding: 14px;
+      }
+      .check-btn {
+        padding: 12px 0;
+      }
+      button {
+        padding: 14px 6px;
+      }
     }
   </style>
 </head>
@@ -179,14 +428,11 @@
 <div class="top-bar">
   <label class="file-label" for="file-input">📂 .apkg / .colpkg ファイルを選択して開始</label>
   <input type="file" id="file-input" accept=".apkg,.colpkg">
-  
   <div class="toolbar">
     <div class="status" id="status-text">ファイルを選択してください（データは外部送信されません）</div>
-    
     <div class="controls-row">
       <button class="action-btn" id="btn-shuffle" title="問題をランダムに並び替え">🔀 シャッフル</button>
       <button class="action-btn" id="btn-original-order" title="1番からの通し番号順に戻す">🔢 番号順</button>
-      
       <button class="filter-btn active" data-filter="all">すべて</button>
       <button class="filter-btn" data-filter="ng">× 要復習</button>
       <button class="filter-btn" data-filter="hold">▲ 曖昧</button>
@@ -223,7 +469,7 @@
       <button id="btn-toggle" disabled>答えを表示 [Space]</button>
       <button id="btn-next" disabled>次へ [→] ▶</button>
     </div>
-    
+
     <div class="shortcut-tip">キーボード操作: [Space] 表示切替 / [←][→] 前後移動 / [1][2][3] 習熟度マーク</div>
   </div>
 </div>
@@ -237,8 +483,8 @@
 
 <script>
   let allCards = [];
-  let visibleIndices = []; 
-  let currentPointer = 0;   
+  let visibleIndices = [];
+  let currentPointer = 0;
   let mediaMap = {};
   let currentFilter = 'all';
 
@@ -249,12 +495,13 @@
   const backText = document.getElementById('back-text');
   const backArea = document.getElementById('back-area');
   const questionGrid = document.getElementById('question-grid');
-  
+
   const btnPrev = document.getElementById('btn-prev');
   const btnToggle = document.getElementById('btn-toggle');
   const btnNext = document.getElementById('btn-next');
   const btnShuffle = document.getElementById('btn-shuffle');
   const btnOriginalOrder = document.getElementById('btn-original-order');
+
   const markOk = document.getElementById('mark-ok');
   const markHold = document.getElementById('mark-hold');
   const markNg = document.getElementById('mark-ng');
@@ -323,9 +570,9 @@
 
       allCards = res[0].values.map((row, idx) => {
         const parts = row[0].split('\x1f');
-        return { 
+        return {
           id: idx,
-          front: parts[0] || "", 
+          front: parts[0] || "",
           back: parts[1] || "",
           mark: null
         };
@@ -333,10 +580,12 @@
 
       // アップデート警告行等の除外
       allCards = allCards.filter(c => !c.front.includes("Ankiの最新バージョンにアップデート"));
+
       if (allCards.length === 0) throw new Error("有効なカードデータを取得できませんでした。");
 
       applyFilter('all');
       statusText.innerText = `読み込み完了: 全 ${allCards.length} 問`;
+
     } catch (err) {
       statusText.innerText = `エラー: ${err.message}`;
       console.error(err);
@@ -388,12 +637,12 @@
       const card = allCards[cardIdx];
       const btn = document.createElement("div");
       btn.className = `grid-btn ${card.mark ? 'mark-' + card.mark : ''}`;
-      
+
       let markSymbol = "";
       if (card.mark === 'ok') markSymbol = "〇";
       if (card.mark === 'hold') markSymbol = "▲";
       if (card.mark === 'ng') markSymbol = "×";
-      
+
       btn.innerHTML = `<span>${card.id + 1}</span><span style="font-size:0.6rem;">${markSymbol}</span>`;
       btn.addEventListener("click", () => {
         currentPointer = pIdx;
@@ -405,11 +654,11 @@
 
   function renderCard() {
     if (visibleIndices.length === 0) return;
+
     const currentCard = allCards[visibleIndices[currentPointer]];
 
     frontText.innerHTML = replaceMediaUrls(currentCard.front);
     backText.innerHTML = replaceMediaUrls(currentCard.back);
-    
     backArea.style.display = 'none';
     cardBox.scrollTop = 0;
 
@@ -419,6 +668,7 @@
 
     btnPrev.disabled = (currentPointer === 0);
     btnNext.disabled = (currentPointer === visibleIndices.length - 1);
+
     statusText.innerText = `${currentPointer + 1} / ${visibleIndices.length} (第${currentCard.id + 1}問)`;
 
     updateCheckButtons(currentCard.mark);
@@ -444,7 +694,7 @@
     if (visibleIndices.length === 0) return;
     const currentCard = allCards[visibleIndices[currentPointer]];
     currentCard.mark = (currentCard.mark === markType) ? null : markType;
-    
+
     updateCheckButtons(currentCard.mark);
     renderSidebarGrid();
 
@@ -502,6 +752,7 @@
 
   window.addEventListener('keydown', (e) => {
     if (visibleIndices.length === 0) return;
+
     if (e.key === " " || e.code === "Space") {
       e.preventDefault();
       btnToggle.click();
@@ -518,6 +769,5 @@
     }
   });
 </script>
-
 </body>
 </html>
